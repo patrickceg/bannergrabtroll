@@ -17,6 +17,8 @@ This is just a hobby project for me rather than a proper tool for security. In f
 * It's a drain of bandwidth to send the pseudorandom garbage
 * This may be against a provider's terms of service (check your provider just in case): you'll probably trigger some "no servers" rules in particular
 * If there's a problem in this program that is exploited, then you get hacked
+* Do not modify this or do any variant of this for UDP!
+*- An IP address in UDP is easily spoofed, so you can actually become part of a distributed denial of service (DDoS) attack if an attacker knows you're running something like this and gives you a packet with their intended target's address. For an example, read articles about _memcrashed_, the nickname of the DDoS against Github and others using the memcached database.
 
 If you _actually_ want to get back at attackers, look up Honeypots, which are designed to log attacks and provide attackers something that looks like an actual server.
 
