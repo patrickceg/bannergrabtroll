@@ -1,5 +1,7 @@
 package main
 
+// Simple tests for the bannergrabtroll.go file
+
 import (
 	"reflect"
 	"testing"

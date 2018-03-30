@@ -1,8 +1,11 @@
 package main
 
+// Program that attempts to send back randomized payload to any TCP connection
+
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -48,22 +51,64 @@ func unit16Ranges(portString string) ([][]uint16, error) {
 }
 
 func main() {
+	// Name of a file that will go in the folder this program runs from if the disclaimer is accepted
+	consentFileName := "iamcrazy"
 	var portString string
 	flag.StringVar(&portString, "ports", "8082:8085,9543", "Ports separated by comma, colon for ranges: 300:400,505 is for ports 300 to 400 plus port 505")
 
-	// portRanges, err := unit16Ranges(portString)
+	// Grab and validate arguments
+	portRanges, portRangeErr := unit16Ranges(portString)
+	if portRangeErr != nil {
+		fmt.Fprintf(os.Stderr, "Invalid port ranges %v", portRangeErr)
+		fmt.Fprintln(os.Stderr)
+		os.Exit(1)
+	}
+	// Validate other arguments are positive
+	payloadKbytes := flag.Int("payloadkbytes", 64, "How many kilobytes to send as payload to a connection")
+	if *payloadKbytes <= 0 {
+		fmt.Fprintf(os.Stderr, "Payload size must be postive: got %d", payloadKbytes)
+		fmt.Fprintln(os.Stderr)
+		os.Exit(1)
+	}
+	rateKbytesPerConnection := flag.Int("ratekbytesperconnection", 32, "Rate limit in kilobytes per second per connection")
+	if *rateKbytesPerConnection <= 0 {
+		fmt.Fprintf(os.Stderr, "Rate per connection must be postive: got %d", rateKbytesPerConnection)
+		fmt.Fprintln(os.Stderr)
+		os.Exit(1)
+	}
+	numConnections := flag.Int("numconnections", 16, "Number of simultaneous connections across any ports")
+	if *numConnections <= 0 {
+		fmt.Fprintf(os.Stderr, "Number of connections must be postive: got %d", numConnections)
+		fmt.Fprintln(os.Stderr)
+		os.Exit(1)
+	}
 
-	//payloadKbytes := flag.Int("payloadkbytes", 64, "How many kilobytes to send as payload to a connection")
-	//rateKbytesPerConnection := flag.Int("ratekbytesperconnection", 32, "Rate limit in kilobytes per second per connection")
-	//numConnections := flag.Int("numconnections", 16, "Number of simultaneous connections across any ports")
+	// If user hasn't accepted disclaimer yet, print it and have the user type in a string that says they accept
+	if _, err := os.Stat(consentFileName); os.IsNotExist(err) {
+		var accepted = false
+		for !accepted {
+			fmt.Println("I hereby acknowledge that running this program may expose my computer ")
+			fmt.Println("or anything attached to the same network as my computer to additional ")
+			fmt.Println("threats. Type ACCEPT followed by the enter key to continue,")
+			fmt.Println("or press CTRL+C to exit.")
+			var userInputString string
+			fmt.Scan(userInputString)
+			if strings.ToLower(strings.TrimSpace(userInputString)) == "ACCEPT" {
+				// Set condition to exit the loop
+				accepted = true
+				// Create blank file
+				_, createErr := os.Create(consentFileName)
+				if createErr != nil {
+					fmt.Fprintf(os.Stderr, "Could not create %s file - you will be asked for consent again", consentFileName)
+					fmt.Fprintln(os.Stderr)
+				}
+			}
+		}
+	}
 
-	// TODO: Validate ports list
-
-	// TODO: Validate other arguments are positive
-
-	// TODO: If user hasn't accepted disclaimer yet, print it and have the user type in a string that says they accept
-
-	// TODO: Print user selection
+	// Print user selection
+	fmt.Printf("Setting up traps on ports %v with payload size %d kbytes, data rate up to %d kbytes x %d", portRanges, payloadKbytes, rateKbytesPerConnection, numConnections)
+	fmt.Println()
 
 	// TODO: Start TCP listener
 }
