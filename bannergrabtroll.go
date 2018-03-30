@@ -53,16 +53,27 @@ func unit16Ranges(portString string) ([][]uint16, error) {
 func main() {
 	// Name of a file that will go in the folder this program runs from if the disclaimer is accepted
 	consentFileName := "iamcrazy"
+	notSpecifiedString := "NOT_SPECIFIED"
 	var portString string
-	flag.StringVar(&portString, "ports", "8082:8085,9543", "Ports separated by comma, colon for ranges: 300:400,505 is for ports 300 to 400 plus port 505")
+	flag.StringVar(&portString, "ports", notSpecifiedString, "Ports separated by comma, colon for ranges: 300:400,505 is for ports 300 to 400 plus port 505")
+	rateKbytesPerConnection := flag.Int("ratekbytesperconnection", 32, "Rate limit in kilobytes per second per connection")
+	numConnections := flag.Int("numconnections", 16, "Number of simultaneous connections across any ports")
+	flag.Parse()
 
-	// Grab and validate arguments
+	if portString == notSpecifiedString {
+		fmt.Fprintln(os.Stderr, "Specify ports to listen on")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
+	// Get port ranges
 	portRanges, portRangeErr := unit16Ranges(portString)
 	if portRangeErr != nil {
 		fmt.Fprintf(os.Stderr, "Invalid port ranges %v", portRangeErr)
 		fmt.Fprintln(os.Stderr)
 		os.Exit(1)
 	}
+
 	// Validate other arguments are positive
 	payloadKbytes := flag.Int("payloadkbytes", 64, "How many kilobytes to send as payload to a connection")
 	if *payloadKbytes <= 0 {
@@ -70,13 +81,11 @@ func main() {
 		fmt.Fprintln(os.Stderr)
 		os.Exit(1)
 	}
-	rateKbytesPerConnection := flag.Int("ratekbytesperconnection", 32, "Rate limit in kilobytes per second per connection")
 	if *rateKbytesPerConnection <= 0 {
 		fmt.Fprintf(os.Stderr, "Rate per connection must be postive: got %d", rateKbytesPerConnection)
 		fmt.Fprintln(os.Stderr)
 		os.Exit(1)
 	}
-	numConnections := flag.Int("numconnections", 16, "Number of simultaneous connections across any ports")
 	if *numConnections <= 0 {
 		fmt.Fprintf(os.Stderr, "Number of connections must be postive: got %d", numConnections)
 		fmt.Fprintln(os.Stderr)
@@ -92,8 +101,8 @@ func main() {
 			fmt.Println("threats. Type ACCEPT followed by the enter key to continue,")
 			fmt.Println("or press CTRL+C to exit.")
 			var userInputString string
-			fmt.Scan(userInputString)
-			if strings.ToLower(strings.TrimSpace(userInputString)) == "ACCEPT" {
+			fmt.Scanln(&userInputString)
+			if strings.ToLower(strings.TrimSpace(userInputString)) == "accept" {
 				// Set condition to exit the loop
 				accepted = true
 				// Create blank file
@@ -102,12 +111,15 @@ func main() {
 					fmt.Fprintf(os.Stderr, "Could not create %s file - you will be asked for consent again", consentFileName)
 					fmt.Fprintln(os.Stderr)
 				}
+			} else {
+				fmt.Printf("Invalid input '%s'", userInputString)
+				fmt.Println()
 			}
 		}
 	}
 
 	// Print user selection
-	fmt.Printf("Setting up traps on ports %v with payload size %d kbytes, data rate up to %d kbytes x %d", portRanges, payloadKbytes, rateKbytesPerConnection, numConnections)
+	fmt.Printf("Setting up traps on ports %v with payload size %d kbytes, data rate up to %d kbytes x %d", portRanges, *payloadKbytes, *rateKbytesPerConnection, *numConnections)
 	fmt.Println()
 
 	// TODO: Start TCP listener
