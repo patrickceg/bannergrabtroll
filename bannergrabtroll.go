@@ -25,6 +25,8 @@ func startConnectionListener(payloadKbytes int, rateKbytesPerConnection int,
 	for {
 		conn, err := listener.Accept()
 		if err == nil {
+			fmt.Printf("Detected connection from %v to %v", conn.LocalAddr(), conn.RemoteAddr())
+			fmt.Println()
 			// if a successful connection is formed, queue it up for the buffer by pushing to the channel
 			sendersChannel <- true
 			// when resources are available, start sending garbage to the connection
@@ -101,7 +103,7 @@ func unit16Ranges(portString string) ([][]uint16, error) {
 	var toReturn [][]uint16
 	if len(allLists) > 0 {
 		for _, portSetString := range allLists {
-			ports := strings.Split(portSetString, ":")
+			ports := strings.Split(portSetString, "-")
 			portsLen := len(ports)
 			parsePortErrorMessage := "Could not parse port %s from %s"
 			if portsLen == 1 || portsLen == 2 {
@@ -129,20 +131,6 @@ func unit16Ranges(portString string) ([][]uint16, error) {
 		return [][]uint16{}, fmt.Errorf("Error parsing port list from %s", portString)
 	}
 	return toReturn, nil
-}
-
-// Initialize the array of 10k of random garbage
-// Returns back the error if there is any
-func createGarbagePool() ([10240]byte, error) {
-	c := 10240
-	garbagePoolSlice := make([]byte, c)
-	var garbagePoolArray [10240]byte
-	_, err := rand.Read(garbagePoolSlice)
-	if err != nil {
-		return garbagePoolArray, err
-	}
-	copy(garbagePoolArray[:], garbagePoolSlice[:])
-	return garbagePoolArray, nil
 }
 
 // Processes the disclaimer for the program
@@ -178,9 +166,10 @@ func main() {
 	// Name of a file that will go in the folder this program runs from if the disclaimer is accepted
 	notSpecifiedString := "NOT_SPECIFIED"
 	var portString string
-	flag.StringVar(&portString, "ports", notSpecifiedString, "Ports separated by comma, colon for ranges: 300:400,505 is for ports 300 to 400 plus port 505")
-	rateKbytesPerConnection := flag.Int("ratekbytesperconnection", 32, "Rate limit in kilobytes per second per connection")
-	maxConnections := flag.Int("maxConnections", 16, "Maximum number of simultaneous connections across any ports")
+	flag.StringVar(&portString, "p", notSpecifiedString, "Ports separated by comma, colon for ranges: 300:400,505 is for ports 300 to 400 plus port 505")
+	rateKbytesPerConnection := flag.Int("r", 32, "Rate limit in kilobytes per second per connection")
+	payloadKbytes := flag.Int("s", 64, "How many kilobytes to send as payload to a connection")
+	maxConnections := flag.Int("n", 16, "Maximum number of simultaneous connections across any ports")
 	flag.Parse()
 
 	if portString == notSpecifiedString {
@@ -198,7 +187,6 @@ func main() {
 	}
 
 	// Validate other arguments are positive
-	payloadKbytes := flag.Int("payloadkbytes", 64, "How many kilobytes to send as payload to a connection")
 	if *payloadKbytes <= 0 {
 		fmt.Fprintf(os.Stderr, "Payload size must be postive: got %d", *payloadKbytes)
 		fmt.Fprintln(os.Stderr)
