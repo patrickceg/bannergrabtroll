@@ -57,10 +57,14 @@ func handleConnection(tcpConnection net.Conn,
 		// generate garbage to send
 		c := bytesPerTenthOfSecond
 		garbageSlice := make([]byte, c)
-		_, sendError := rand.Read(garbageSlice)
+		_, sendErrorRand := rand.Read(garbageSlice)
+		sendError = sendErrorRand
 		if sendError == nil {
+			// drop the connection if it goes away for a few seconds
+			tcpConnection.SetDeadline(time.Now().Add(5 * time.Second))
 			// send the garbage if it generated properly
-			_, sendError = tcpConnection.Write(garbageSlice)
+			_, sendErrorTCPWrite := tcpConnection.Write(garbageSlice)
+			sendError = sendErrorTCPWrite
 			// check if we need to wait to throttle the sending
 			sendEndTime := time.Now()
 			timeSpentSending := sendEndTime.Sub(sendStartTime)
@@ -71,8 +75,11 @@ func handleConnection(tcpConnection net.Conn,
 			}
 		}
 	}
+	tcpConnection.Close()
 	// Log what garbage was sent
-	fmt.Printf("Sent %d bytes from %v to %v", currentBytes, tcpConnection.LocalAddr(), tcpConnection.RemoteAddr())
+	fmt.Printf("Sent %d bytes from %v to %v with error %v", currentBytes, tcpConnection.LocalAddr(),
+		tcpConnection.RemoteAddr(), sendError)
+	fmt.Println()
 	// free up resource by pulling from the channel
 	<-sendersChannel
 }
