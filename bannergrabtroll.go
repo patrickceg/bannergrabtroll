@@ -22,19 +22,39 @@ import (
 // The channel doesn't actually use values: it instead is just used as a
 // semaphore. We have run out of connections when sendersChannel's buffer is
 // full, and each time handleConnection finishes / fails, it takes from the buffer
+// This also uses a map to store the most recent access by any given address
 func startConnectionListener(payloadKbytes int, rateKbytesPerConnection int,
-	sendersChannel chan bool, listener net.Listener, abuseipdbKey string) {
+	sendersChannel chan bool, listener net.Listener, abuseipdbKey string, addrMap map[string]time.Time) {
 	for {
 		conn, err := listener.Accept()
 		if err == nil {
 			// func SplitHostPort(hostport string) (host, port string, err error)
 			_, port, _ := net.SplitHostPort(conn.LocalAddr().String())
 			remoteAddr, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-			fmt.Printf("%v: Detected connection on port %s from %s", time.Now(), port, remoteAddr)
-			fmt.Println()
-			// report connection to abuseipdb if key is present
-			if abuseipdbKey != "" {
-				go reportAbuseipdb(remoteAddr, port, abuseipdbKey)
+			attackTime := time.Now()
+			// Check if an IP already had an entry
+			previousTime, ok := addrMap[remoteAddr]
+			var shouldReport bool
+			if !ok {
+				fmt.Printf("%v: Detected connection on port %s from %s - First attack", time.Now(), port, remoteAddr)
+				fmt.Println()
+				shouldReport = true
+			} else if attackTime.Sub(previousTime) > time.Hour*12 {
+				fmt.Printf("%v: Detected connection on port %s from %s - Attacked %v, a while ago", time.Now(), port, remoteAddr, previousTime)
+				fmt.Println()
+				shouldReport = true
+			} else {
+				fmt.Printf("%v: Detected connection on port %s from %s - Attacked %v, recently", time.Now(), port, remoteAddr, previousTime)
+				fmt.Println()
+				shouldReport = false
+			}
+			// update the time of this attack
+			addrMap[remoteAddr] = attackTime
+			if shouldReport {
+				// report connection to abuseipdb if key is present
+				if abuseipdbKey != "" {
+					go reportAbuseipdb(remoteAddr, port, abuseipdbKey)
+				}
 			}
 			// if a successful connection is formed, queue it up for the buffer by pushing to the channel
 			sendersChannel <- true
@@ -80,7 +100,7 @@ func handleConnection(tcpConnection net.Conn,
 	var currentBytes uint64 //= 0
 	maxBytes := uint64(payloadKbytes) * 1024
 	tenthOfSecond := time.Duration(100000)
-	bytesPerTenthOfSecond := uint32(rateKbytesPerConnection) / 10
+	bytesPerTenthOfSecond := uint32(rateKbytesPerConnection) * 1024 / 10
 	// do the sending
 	var sendError error // = nil
 	for currentBytes < maxBytes && sendError == nil {
@@ -270,10 +290,13 @@ func main() {
 	if abuseipdbKey != "" {
 		fmt.Println("Enabled using abuseipdb to report detections via HTTP POST")
 	}
+
+	var addrMap = make(map[string]time.Time)
+
 	sendersChannel := make(chan bool, *maxConnections)
 	for _, connection := range listenerMap {
 		go startConnectionListener(*payloadKbytes, *rateKbytesPerConnection, sendersChannel, connection,
-			abuseipdbKey)
+			abuseipdbKey, addrMap)
 	}
 
 	for {

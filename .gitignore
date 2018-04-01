@@ -7,6 +7,9 @@
 # Test binary, build with `go test -c`
 *.test
 
+# The name of the file (with some secrets) I'm using to debug
+debug_patrickceg.sh
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
