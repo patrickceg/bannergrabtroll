@@ -19,13 +19,15 @@ import (
 // The channel doesn't actually use values: it instead is just used as a
 // semaphore. We have run out of connections when sendersChannel's buffer is
 // full, and each time handleConnection finishes / fails, it takes from the buffer
-// The garbagePool is the 10k of pseudorandom data senders get to choose from
 func startConnectionListener(payloadKbytes int, rateKbytesPerConnection int,
 	sendersChannel chan bool, listener net.Listener) {
 	for {
 		conn, err := listener.Accept()
 		if err == nil {
-			fmt.Printf("Detected connection from %v to %v", conn.LocalAddr(), conn.RemoteAddr())
+			// func SplitHostPort(hostport string) (host, port string, err error)
+			_, port, _ := net.SplitHostPort(conn.LocalAddr().String())
+			remoteAddr, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+			fmt.Printf("%v: Detected connection on port %s from %s", time.Now(), port, remoteAddr)
 			fmt.Println()
 			// if a successful connection is formed, queue it up for the buffer by pushing to the channel
 			sendersChannel <- true
@@ -61,9 +63,14 @@ func handleConnection(tcpConnection net.Conn,
 		sendError = sendErrorRand
 		if sendError == nil {
 			// drop the connection if it goes away for a few seconds
-			tcpConnection.SetDeadline(time.Now().Add(5 * time.Second))
+			tcpConnection.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			// send the garbage if it generated properly
 			_, sendErrorTCPWrite := tcpConnection.Write(garbageSlice)
+			// try to read equivalent bytes from the connection
+			// TODO: make reads count against some limit as well
+			readSlice := make([]byte, bytesPerTenthOfSecond)
+			tcpConnection.SetReadDeadline(time.Now().Add(25 * time.Millisecond))
+			tcpConnection.Read(readSlice)
 			sendError = sendErrorTCPWrite
 			// check if we need to wait to throttle the sending
 			sendEndTime := time.Now()
@@ -77,7 +84,7 @@ func handleConnection(tcpConnection net.Conn,
 	}
 	tcpConnection.Close()
 	// Log what garbage was sent
-	fmt.Printf("Sent %d bytes from %v to %v with error %v", currentBytes, tcpConnection.LocalAddr(),
+	fmt.Printf("%v: Sent %d bytes from %v to %v with error %v", time.Now(), currentBytes, tcpConnection.LocalAddr(),
 		tcpConnection.RemoteAddr(), sendError)
 	fmt.Println()
 	// free up resource by pulling from the channel
