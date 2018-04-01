@@ -6,7 +6,10 @@ import (
 	"crypto/rand"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -20,7 +23,7 @@ import (
 // semaphore. We have run out of connections when sendersChannel's buffer is
 // full, and each time handleConnection finishes / fails, it takes from the buffer
 func startConnectionListener(payloadKbytes int, rateKbytesPerConnection int,
-	sendersChannel chan bool, listener net.Listener) {
+	sendersChannel chan bool, listener net.Listener, abuseipdbKey string) {
 	for {
 		conn, err := listener.Accept()
 		if err == nil {
@@ -29,12 +32,39 @@ func startConnectionListener(payloadKbytes int, rateKbytesPerConnection int,
 			remoteAddr, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 			fmt.Printf("%v: Detected connection on port %s from %s", time.Now(), port, remoteAddr)
 			fmt.Println()
+			// report connection to abuseipdb if key is present
+			if abuseipdbKey != "" {
+				go reportAbuseipdb(remoteAddr, port, abuseipdbKey)
+			}
 			// if a successful connection is formed, queue it up for the buffer by pushing to the channel
 			sendersChannel <- true
 			// when resources are available, start sending garbage to the connection
 			go handleConnection(conn, payloadKbytes, rateKbytesPerConnection, sendersChannel)
 		}
 	}
+}
+
+// Reports the connection to abuseipdb.com
+func reportAbuseipdb(remoteAddr string, port string, abuseipdbKey string) {
+	// "https://www.abuseipdb.com/report/json"
+	comment := fmt.Sprintf("TCP port %s: Scan and connection", port)
+	postValues := url.Values{
+		"key":      {abuseipdbKey},
+		"category": {"14"},
+		"ip":       {remoteAddr},
+		"comment":  {comment}}
+	resp, err := http.PostForm("https://www.abuseipdb.com/report/json",
+		postValues)
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error posting to abuseipdb", err)
+	}
+
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Printf("Posted to AbuseIPDB, response: %q", body)
+	fmt.Println()
+
 }
 
 // Sends garbage to the given TCP connection until either the
@@ -235,9 +265,15 @@ func main() {
 		}
 	}
 
+	// get abuseipdb key from environment variable if it exists
+	abuseipdbKey := os.Getenv("ABUSEIPDB_KEY")
+	if abuseipdbKey != "" {
+		fmt.Println("Enabled using abuseipdb to report detections via HTTP POST")
+	}
 	sendersChannel := make(chan bool, *maxConnections)
 	for _, connection := range listenerMap {
-		go startConnectionListener(*payloadKbytes, *rateKbytesPerConnection, sendersChannel, connection)
+		go startConnectionListener(*payloadKbytes, *rateKbytesPerConnection, sendersChannel, connection,
+			abuseipdbKey)
 	}
 
 	for {
