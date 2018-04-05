@@ -40,17 +40,17 @@ func startConnectionListener(payloadKbytes int, rateKbytesPerConnection int,
 				fmt.Println()
 				shouldReport = true
 			} else if attackTime.Sub(previousTime) > time.Hour*12 {
-				fmt.Printf("%v: Detected connection on port %s from %s - Attacked %v, a while ago", time.Now(), port, remoteAddr, previousTime)
+				fmt.Printf("%v: Detected connection on port %s from %s - Already reported %v, a while ago", time.Now(), port, remoteAddr, previousTime)
 				fmt.Println()
 				shouldReport = true
 			} else {
-				fmt.Printf("%v: Detected connection on port %s from %s - Attacked %v, recently", time.Now(), port, remoteAddr, previousTime)
+				fmt.Printf("%v: Detected connection on port %s from %s - Already reported %v, recently", time.Now(), port, remoteAddr, previousTime)
 				fmt.Println()
 				shouldReport = false
 			}
-			// update the time of this attack
-			addrMap[remoteAddr] = attackTime
 			if shouldReport {
+				// update the time of this attack for throttling of reports
+				addrMap[remoteAddr] = attackTime
 				// report connection to abuseipdb if key is present
 				if abuseipdbKey != "" {
 					go reportAbuseipdb(remoteAddr, port, abuseipdbKey)
@@ -82,9 +82,10 @@ func reportAbuseipdb(remoteAddr string, port string, abuseipdbKey string) {
 
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Printf("Posted to AbuseIPDB, response: %q", body)
-	fmt.Println()
-
+	if body != nil {
+		fmt.Printf("Posted to AbuseIPDB, response: %q", body)
+		fmt.Println()
+	}
 }
 
 // Sends garbage to the given TCP connection until either the
