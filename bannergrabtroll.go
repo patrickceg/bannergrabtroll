@@ -79,12 +79,15 @@ func reportAbuseipdb(remoteAddr string, port string, abuseipdbKey string) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error posting to abuseipdb", err)
 	}
-
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	if body != nil {
-		fmt.Printf("Posted to AbuseIPDB, response: %q", body)
-		fmt.Println()
+	// TODO: Check if we need to check resp being nil, or if an error being not nil means
+	// body will be there
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+		body, _ := ioutil.ReadAll(resp.Body)
+		if body != nil {
+			fmt.Printf("Posted to AbuseIPDB, response: %q", body)
+			fmt.Println()
+		}
 	}
 }
 
