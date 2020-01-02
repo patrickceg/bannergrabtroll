@@ -40,6 +40,24 @@ bannergrabapp -p 4000
 
 The application will then ask you to acknowledge a similar disclaimer to the one above, which will require you to type in a value into the keyboard (or perhaps other app attached to STDIN). After accepting the disclaimer, the app will create a blank file in the directory you ran it from (so to not ask you again).
 
+### AbuseIPDB Integration
+
+You can also set up this program to sent reports to [AbuseIPDB](https://www.abuseipdb.com/).
+
+It will report if the environment variable _ABUSEIPDB_KEY_ is set to the API key you get from registering a free account at AbuseIPDB.
+
+A possible bash script you can use to set up the environment variable is like this:
+* Replace the 'a's with your actual AbuseIPDB key
+* The example also has the parameters to use a rate of 1 kB per second, send up to 1.25 MB to the attacker, and listen on ports 2000 and 2001, which you can change
+
+```
+#! /bin/bash
+
+export ABUSEIPDB_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+go build bannergrabtroll.go
+./bannergrabtroll -r 1 -s 1280 -p 2000,2001
+```
+
 ### Docker
 
 If running with the included Dockerfile, you can build an image for it and run it. (I can't see a reason to make this joke pollute Docker hub at this point, although if you feel like it I won't care if someone forks this repository and points a Docker Hub build at it...?)

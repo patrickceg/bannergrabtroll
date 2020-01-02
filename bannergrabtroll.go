@@ -66,18 +66,23 @@ func startConnectionListener(payloadKbytes int, rateKbytesPerConnection int,
 
 // Reports the connection to abuseipdb.com
 func reportAbuseipdb(remoteAddr string, port string, abuseipdbKey string) {
-	// "https://www.abuseipdb.com/report/json"
+	client := &http.Client{}
+	// Create request body
 	comment := fmt.Sprintf("TCP port %s: Scan and connection", port)
-	postValues := url.Values{
-		"key":      {abuseipdbKey},
-		"category": {"14"},
-		"ip":       {remoteAddr},
-		"comment":  {comment}}
-	resp, err := http.PostForm("https://www.abuseipdb.com/report/json",
-		postValues)
-
+	category := "14" // port scan
+	params := fmt.Sprintf("ip=%s&comment=%s&categories=%s", url.QueryEscape(remoteAddr), url.QueryEscape(comment), category)
+	fmt.Printf("Query %s", params) // TODO remove
+	req, reqErr := http.NewRequest("POST", "https://api.abuseipdb.com/api/v2/report?"+params, nil)
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Key", abuseipdbKey)
+	if reqErr != nil {
+		fmt.Fprintln(os.Stderr, "Error creating API query for abuseipdb", reqErr)
+		return
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error posting to abuseipdb", err)
+		return
 	}
 	// TODO: Check if we need to check resp being nil, or if an error being not nil means
 	// body will be there
