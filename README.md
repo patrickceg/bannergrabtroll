@@ -54,7 +54,9 @@ A possible bash script you can use to set up the environment variable is like th
 #! /bin/bash
 
 export ABUSEIPDB_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-go build bannergrabtroll.go
+# You can use this to rebuild each time assuming you're poking around with the code
+# rm -f bannergrabtroll
+# go build bannergrabtroll.go
 ./bannergrabtroll -r 1 -s 1280 -p 2000,2001
 ```
 

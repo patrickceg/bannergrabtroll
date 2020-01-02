@@ -71,7 +71,6 @@ func reportAbuseipdb(remoteAddr string, port string, abuseipdbKey string) {
 	comment := fmt.Sprintf("TCP port %s: Scan and connection", port)
 	category := "14" // port scan
 	params := fmt.Sprintf("ip=%s&comment=%s&categories=%s", url.QueryEscape(remoteAddr), url.QueryEscape(comment), category)
-	fmt.Printf("Query %s", params) // TODO remove
 	req, reqErr := http.NewRequest("POST", "https://api.abuseipdb.com/api/v2/report?"+params, nil)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Key", abuseipdbKey)
@@ -84,14 +83,14 @@ func reportAbuseipdb(remoteAddr string, port string, abuseipdbKey string) {
 		fmt.Fprintln(os.Stderr, "Error posting to abuseipdb", err)
 		return
 	}
-	// TODO: Check if we need to check resp being nil, or if an error being not nil means
-	// body will be there
 	if resp != nil && resp.Body != nil {
 		defer resp.Body.Close()
 		body, _ := ioutil.ReadAll(resp.Body)
 		if body != nil {
 			fmt.Printf("Posted to AbuseIPDB, response: %q", body)
 			fmt.Println()
+		} else {
+			fmt.Fprintln(os.Stderr, "Error: AbuseIPDB responded with empty body")
 		}
 	}
 }
