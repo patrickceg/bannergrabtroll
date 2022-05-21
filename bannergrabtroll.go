@@ -238,7 +238,7 @@ func main() {
 	// Name of a file that will go in the folder this program runs from if the disclaimer is accepted
 	notSpecifiedString := "NOT_SPECIFIED"
 	var portString string
-	flag.StringVar(&portString, "p", notSpecifiedString, "Ports separated by comma, colon for ranges: 300:400,505 is for ports 300 to 400 plus port 505")
+	flag.StringVar(&portString, "p", notSpecifiedString, "Ports separated by comma, dash for ranges: 300-400,505 is for ports 300 to 400 plus port 505")
 	rateKbytesPerConnection := flag.Int("r", 32, "Rate limit in kilobytes per second per connection")
 	payloadKbytes := flag.Int("s", 64, "How many kilobytes to send as payload to a connection")
 	maxConnections := flag.Int("n", 16, "Maximum number of simultaneous connections across any ports")
